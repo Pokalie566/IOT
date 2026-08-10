@@ -17,6 +17,8 @@ if [ ! -f /vagrant/.secrets/node-token ]; then
 	exit 1
 fi
 
+systemctl start systemd-time-wait-sync
+
 curl -sfL https://get.k3s.io | \
 	K3S_URL="https://$SERVER_IP:6443" \
 	K3S_TOKEN="$(cat /vagrant/.secrets/node-token)" \

@@ -11,6 +11,8 @@ if [ -z "$IFACE" ]; then
 fi
 echo "private iface: $IFACE"
 
+systemctl start systemd-time-wait-sync
+
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server \
 	--node-ip=$SERVER_IP \
 	--advertise-address=$SERVER_IP \
