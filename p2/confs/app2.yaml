@@ -1,8 +1,10 @@
+# APP_NAME is read by the image entrypoint to fill the page template
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app2
 spec:
+  # 3 replicas required by the subject
   replicas: 3
   selector:
     matchLabels:
@@ -13,9 +15,11 @@ spec:
         app: app2
     spec:
       containers:
-        - name: whoami
-          image: traefik/whoami:v1.12.0
-          args: ["--name=app2"]
+        - name: app
+          image: pokalie566/iot-app:v1
+          env:
+            - name: APP_NAME
+              value: app2
           ports:
             - containerPort: 80
 ---
