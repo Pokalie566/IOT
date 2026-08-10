@@ -30,6 +30,25 @@ docker (k3d only)
 
 ## p1 — k3s server and agent
 
+```mermaid
+flowchart LR
+    subgraph host["macOS host"]
+        token["p1/.secrets/node-token<br/><i>shared folder</i>"]
+    end
+    subgraph s["adebooseS &middot; 192.168.56.110"]
+        api["k3s <b>server</b><br/>api &middot; scheduler &middot; controller<br/>+ kubelet"]
+    end
+    subgraph w["adebooseSW &middot; 192.168.56.111"]
+        agent["k3s <b>agent</b><br/>kubelet &middot; kube-proxy"]
+    end
+    api -- "writes" --> token
+    token -- "reads" --> agent
+    agent -- "joins :6443" --> api
+```
+
+The token travels server → host → agent through the folder Vagrant shares, which
+is why the server must finish provisioning before the agent starts.
+
 ```sh
 cd p1 && vagrant up
 vagrant ssh adebooseS -c "kubectl get nodes -o wide"
@@ -46,6 +65,28 @@ folder Vagrant shares with the host. It is gitignored.
 
 ## p2 — three apps behind one Ingress
 
+The full path of one request, which is also the answer to *how do you reach a
+ClusterIP from outside*:
+
+```mermaid
+flowchart TB
+    client["curl -H 'Host: app2.com' 192.168.56.110"]
+    subgraph vm["adebooseS &middot; k3s server"]
+        svclb["svclb-traefik DaemonSet<br/><i>hostPort 80</i>"]
+        traefik["<b>Traefik</b><br/>reads the Host header"]
+        sa["svc app1<br/>ClusterIP"]
+        sb["svc app2<br/>ClusterIP"]
+        sc["svc app3<br/>ClusterIP"]
+        pa["pod app1"]
+        pb["pod app2 &times;3"]
+        pc["pod app3"]
+    end
+    client --> svclb --> traefik
+    traefik -- "app1.com" --> sa --> pa
+    traefik -- "app2.com" --> sb --> pb
+    traefik -- "no host<br/><i>catch-all</i>" --> sc --> pc
+```
+
 ```sh
 cd p2 && vagrant up
 
@@ -61,6 +102,27 @@ A single Ingress carries all three rules. The third has **no `host`**, which
 makes it the catch-all.
 
 ## p3 — GitOps with Argo CD
+
+Git is the source of truth: the cluster is never modified directly.
+
+```mermaid
+flowchart LR
+    push["git push<br/><i>image: v1 &rarr; v2</i>"]
+    gh["<b>GitHub</b><br/>adeboose-iot-app<br/>deployment.yaml"]
+    subgraph cluster["k3d cluster &middot; iot"]
+        subgraph nsa["namespace argocd"]
+            argo["<b>Argo CD</b><br/>polls every ~3 min"]
+        end
+        subgraph nsb["namespace dev"]
+            app["Deployment playground<br/>Service NodePort 30888"]
+        end
+    end
+    client["curl localhost:8888"]
+    push --> gh
+    argo -. "watches" .-> gh
+    argo -- "apply &middot; prune &middot; selfHeal" --> app
+    client --> app
+```
 
 ```sh
 sudo bash p3/scripts/install.sh   # docker, kubectl, k3d, helm, argocd (debian/ubuntu)
