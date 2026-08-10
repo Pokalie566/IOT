@@ -8,6 +8,7 @@ Argo CD.
 | `p1` | 2 VMs, k3s server + agent | 2 nodes `Ready` with the right internal IPs |
 | `p2` | 1 VM, 3 apps routed by HTTP `Host` header | 3 curls returning app1 / app2 / app3 |
 | `p3` | k3d cluster, Argo CD syncing a GitHub repo | image tag `v1` → `v2` in git, cluster follows |
+| `bonus` | GitLab in the cluster, replacing GitHub as the source | a commit that exists only on the local GitLab reaches the cluster |
 
 Everything is rebuilt from scratch by a single command per part. Nothing is
 configured by hand.
@@ -146,6 +147,32 @@ git commit -am "bump to v2" && git push
 
 Argo CD polls roughly every 3 minutes. Measured end to end on this setup:
 **297 s** from `git push` to the new version being served.
+
+## bonus — the same pipeline, off a self-hosted GitLab
+
+```sh
+bash bonus/scripts/install_gitlab.sh    # namespace gitlab, ~15 min on first boot
+bash bonus/scripts/push_to_gitlab.sh    # creates the public project, mirrors the manifests
+kubectl apply -f bonus/confs/application.yaml
+```
+
+The Application keeps its name and destination; only `repoURL` moves from
+GitHub to `gitlab.gitlab.svc.cluster.local:8081`. Argo CD resolves that through
+CoreDNS, from inside the cluster.
+
+Proven by committing a rollback to `v1` **on the local GitLab only**. Argo CD
+synced revision `bbcf485`, a commit GitHub does not have, and the cluster went
+back to `v1`. Expect it to be slow — 1123 s here against 297 s in p3, because
+GitLab and the rest of the cluster fight over the same CPU and RAM.
+
+To reach the UI from a browser, the host needs the same name to resolve:
+
+```sh
+echo "127.0.0.1 gitlab.gitlab.svc.cluster.local" | sudo tee -a /etc/hosts
+```
+
+The pipeline itself does not need it — `push_to_gitlab.sh` pushes from a pod,
+where cluster DNS already works.
 
 ## Notes
 
