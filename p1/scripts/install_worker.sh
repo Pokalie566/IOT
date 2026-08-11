@@ -17,7 +17,9 @@ if [ ! -f /vagrant/.secrets/node-token ]; then
 	exit 1
 fi
 
-systemctl start systemd-time-wait-sync
+# see install_server.sh: chrony on 26.04, systemd-timesyncd before that
+systemctl start chrony-wait 2>/dev/null || systemctl start systemd-time-wait-sync ||
+	{ echo "no clock sync service, refusing to install k3s" >&2; exit 1; }
 
 curl -sfL https://get.k3s.io | \
 	K3S_URL="https://$SERVER_IP:6443" \

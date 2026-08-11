@@ -1,4 +1,3 @@
-# APP_NAME is read by the image entrypoint to fill the page template
 apiVersion: apps/v1
 kind: Deployment
 metadata:
