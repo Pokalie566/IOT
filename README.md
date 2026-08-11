@@ -239,13 +239,97 @@ cannot steal traffic from the named hosts.
 **ClusterIP services are still reachable from outside.** Only Traefik is a
 `LoadBalancer`. With no cloud provider, k3s's ServiceLB creates a
 `svclb-traefik` DaemonSet whose pods claim host ports 80 and 443. Traffic goes
-`node:80 → svclb hostPort → traefik → ClusterIP → kube-proxy → pod`. The app
-services are never exposed; Traefik reaches them from inside the cluster.
+`node:80 → svclb hostPort → traefik ClusterIP → traefik pod → app pod IP`.
+
+**The last hop skips the Service entirely.** Traefik does not send anything to
+`app2`'s ClusterIP: it watches the EndpointSlices and load-balances across pod
+IPs itself, so kube-proxy never sees that traffic. The packet counter on the nat
+rule proves it — ten requests through the Ingress, then one straight at the
+ClusterIP:
+
+```
+10 requests via the Ingress   ->  0 pkts  KUBE-SVC-3CBU... /* default/app2 cluster IP */
+1 curl on the ClusterIP       ->  1 pkts  KUBE-SVC-3CBU... /* default/app2 cluster IP */
+```
 
 **The image is built for two architectures.** `paulbouwer/hello-kubernetes` and
-similar images are amd64-only and cannot run here. `pokalie566/iot-app` is built
-with `docker buildx --platform linux/amd64,linux/arm64`, so the same manifests
-work on Apple Silicon and on an x86 evaluation machine.
+similar images are amd64-only and cannot run here.
+[`pokalie566/adeboose-iot-app`](https://hub.docker.com/r/pokalie566/adeboose-iot-app)
+is built with `docker buildx --platform linux/amd64,linux/arm64`, so the same
+manifests work on Apple Silicon and on an x86 evaluation machine. The repository
+name carries the 42 login, which the grading sheet asks for; the Docker Hub
+account name (`pokalie566`) is not it.
+
+## Defense
+
+The order below follows the grading sheet. One part runs at a time — p1 and p2
+both claim `192.168.56.110`.
+
+### p1
+
+```sh
+cd p1 && vagrant up
+vagrant ssh adebooseS      # and adebooseSW: password-less, Vagrant injects a key
+hostname                   # adebooseS / adebooseSW
+kubectl get nodes -o wide  # 2 nodes Ready, INTERNAL-IP .110 and .111
+```
+
+> **The sheet's network command does not show the required IP, and that is
+> expected.** It reads `ip a show $(ip route | grep default | awk '{print $5}')`,
+> which resolves to whatever interface carries the *default route* — on any
+> Vagrant VM that is `eth0`, the NAT interface Vagrant needs for SSH:
+>
+> ```
+> 2: eth0 ... inet 192.168.156.142/24     <- Vagrant's NAT, the default route
+>    eth1 ... inet 192.168.56.110/24      <- the dedicated IP the subject asks for
+> ```
+>
+> Show `ip -o -4 addr show` instead, then close it with `kubectl get nodes -o
+> wide`: k3s advertises `192.168.56.110` as the node's `INTERNAL-IP`, which is
+> what "dedicated IP" actually means here. This is structural to Vagrant, not a
+> mistake in this repo.
+
+### p2
+
+```sh
+cd p1 && vagrant destroy -f && cd ../p2 && vagrant up
+vagrant ssh adebooseS -c "kubectl get nodes -o wide && kubectl get all"
+vagrant ssh adebooseS -c "kubectl describe ingress apps"   # the Ingress, on request
+
+curl -H "Host: app1.com" 192.168.56.110    # app1
+curl -H "Host: app2.com" 192.168.56.110    # app2, repeat it: the pod name changes
+curl 192.168.56.110                        # app3, no host -> catch-all
+```
+
+### p3 and bonus
+
+p3 runs in the `iot` Linux VM, **not** on the host — see [Environment](#environment).
+Everything below is typed inside it.
+
+```sh
+orb create ubuntu:noble iot        # if the machine does not exist yet
+orb -m iot
+sudo bash p3/scripts/install.sh    # docker, kubectl, k3d, git on a bare box
+bash p3/scripts/start.sh           # prints the Argo CD password
+kubectl get ns                     # argocd, dev
+kubectl get pods -n dev
+curl localhost:8888                # v1
+```
+
+Then edit `deployment.yaml` in the app repo, push, and watch Argo CD pick it up.
+
+### Questions the sheet forces, and the short answers
+
+| Asked | Answer |
+|---|---|
+| Why no Vagrantfile in `p3`? | The subject says *without Vagrant this time*, and the whole project must live in a VM — so p3 gets a plain Linux VM that Vagrant did not build. Vagrant provisions nothing there. |
+| `curl localhost:8888` fails on macOS | `localhost` on the Mac is not `localhost` in the VM. Use `http://iot.orb.local:8888`, or curl from inside the VM as the subject does. |
+| Namespace vs pod | A namespace is a naming scope for objects, not a machine and not a runtime. A pod is the smallest deployable unit: one or more containers sharing a network namespace and an IP. |
+| Where is the login? | GitHub repo `adeboose-iot-app`, Docker Hub repo `pokalie566/adeboose-iot-app`, hostnames `adebooseS` / `adebooseSW`. |
+| The two Docker Hub tags | `v1` and `v2`, both `linux/amd64` + `linux/arm64`. |
+| Sync did not happen | Argo CD polls every ~3 min. Force it in the UI, or `kubectl -n argocd annotate app playground argocd.argoproj.io/refresh=hard --overwrite`. |
+| Where does Argo CD get the right to write in `dev`? | A ClusterRoleBinding on the `argocd-application-controller` ServiceAccount — cluster-wide, so every namespace. |
+| Reaching the GitLab UI from the Mac | Add the VM's IP to `/etc/hosts` under the cluster name (see [bonus](#bonus--the-same-pipeline-off-a-self-hosted-gitlab)). The name must resolve to the same host GitLab's nginx answers for. |
 
 ## Gotchas
 
