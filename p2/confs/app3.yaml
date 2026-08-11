@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: pokalie566/iot-app:v1
+          image: pokalie566/adeboose-iot-app:v1
           env:
             - name: APP_NAME
               value: app3
