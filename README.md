@@ -10,8 +10,9 @@ Argo CD.
 | `p3` | k3d cluster, Argo CD syncing a GitHub repo | image tag `v1` → `v2` in git, cluster follows |
 | `bonus` | GitLab in the cluster, replacing GitHub as the source | a commit that exists only on the local GitLab reaches the cluster |
 
-Everything is rebuilt from scratch by a single command per part. Nothing is
-configured by hand.
+Everything is rebuilt from scratch by scripts — `vagrant up` for `p1` and `p2`,
+two scripts for `p3`. Nothing is configured by hand, and every part below was
+replayed from zero and checked with the commands it shows.
 
 ## Environment
 
