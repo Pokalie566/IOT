@@ -3,8 +3,6 @@ kind: Namespace
 metadata:
   name: gitlab
 ---
-# gitlab regenerates /etc/gitlab secrets if lost, but then cannot read anything
-# it encrypted before, so config and data are both persisted
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -40,7 +38,6 @@ spec:
     matchLabels:
       app: gitlab
   strategy:
-    # one RWO volume cannot be mounted by two pods, so never overlap them
     type: Recreate
   template:
     metadata:
@@ -53,11 +50,7 @@ spec:
           env:
             - name: GITLAB_OMNIBUS_CONFIG
               value: |
-                # nginx only answers to the external_url host, so this must be
-                # the address argo cd clones from, not localhost
                 external_url 'http://gitlab.gitlab.svc.cluster.local:8081'
-                # /-/readiness answers 404 to anything outside this list, and
-                # the kubelet probes from the pod network, not from localhost
                 gitlab_rails['monitoring_whitelist'] = ['127.0.0.0/8', '::1/128', '10.42.0.0/16']
                 nginx['listen_port'] = 8081
                 nginx['listen_https'] = false
@@ -69,9 +62,6 @@ spec:
                 sidekiq['max_concurrency'] = 5
           ports:
             - containerPort: 8081
-          # omnibus takes several minutes to migrate and boot on first start
-          # the kubelet probes the pod ip, so without this Host header nginx
-          # falls through to its default server and answers 404
           startupProbe:
             httpGet:
               path: /-/readiness
@@ -105,9 +95,6 @@ spec:
           persistentVolumeClaim:
             claimName: gitlab-data
 ---
-# reachable two ways: localhost:8081 from the host through the k3d mapping,
-# and gitlab.gitlab.svc.cluster.local:8081 from inside the cluster, which is
-# the address argo cd clones from
 apiVersion: v1
 kind: Service
 metadata:

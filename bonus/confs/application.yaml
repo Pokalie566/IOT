@@ -1,6 +1,3 @@
-# same Application as p3, only the source moves from github to the in-cluster
-# gitlab. applying this overwrites the p3 one, which is the point of the bonus:
-# the app is served from the local gitlab instead of github.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -9,7 +6,6 @@ metadata:
 spec:
   project: default
   source:
-    # cluster dns, not localhost: argo cd resolves this from inside the cluster
     repoURL: http://gitlab.gitlab.svc.cluster.local:8081/root/adeboose-iot-app.git
     targetRevision: main
     path: .
