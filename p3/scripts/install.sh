@@ -1,5 +1,5 @@
 #!/bin/bash
-# installs every tool p3 needs: docker, kubectl, k3d, helm, argocd
+# installs every tool p3 needs: docker, kubectl, k3d, git
 # target: debian/ubuntu, run as root
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -27,18 +27,10 @@ fi
 command -v k3d >/dev/null ||
 	curl -sL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
-# helm: not needed by p3 itself, required by the bonus
-command -v helm >/dev/null ||
-	curl -sL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+# git: the v1 -> v2 demo pushes to the app repo from here
+command -v git >/dev/null || { apt-get update -qq && apt-get install -y -qq git; }
 
-# argocd cli: reads the admin password and forces a sync without the ui
-if ! command -v argocd >/dev/null; then
-	curl -sLo /usr/local/bin/argocd \
-		"https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-$ARCH"
-	chmod +x /usr/local/bin/argocd
-fi
-
-for tool in docker kubectl k3d helm argocd; do
+for tool in docker kubectl k3d git; do
 	command -v "$tool" >/dev/null || { echo "$tool missing" >&2; exit 1; }
 	echo "ok: $tool"
 done
