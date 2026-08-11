@@ -16,18 +16,32 @@ replayed from zero and checked with the commands it shows.
 
 ## Environment
 
-Built and tested on **macOS, Apple Silicon (arm64)**. That constraint drives two
-choices worth knowing about:
+Built and tested on **macOS, Apple Silicon (arm64)**, and written to replay on an
+**x86 Linux box** without edits:
 
-- **Provider `vmware_desktop`** — VirtualBox has no arm64 build, so the usual
-  42 setup does not apply.
-- **Box `bento/ubuntu-26.04`** — one of the few boxes published for both arm64
-  and VMware, and the current LTS, which is what the subject asks for.
+- **Two provider blocks per VM** — `virtualbox` and `vmware_desktop`. Vagrant
+  applies the one it finds installed, so `vagrant up` takes no flag on either
+  machine. VMware is what arm64 macOS needs; VirtualBox is the usual 42 setup.
+- **Box `bento/ubuntu-26.04`** — current LTS, published for both architectures
+  and both providers. Vagrant 2.4 picks the variant matching the host.
+- **Images built for `linux/amd64,linux/arm64`** — same manifests, both CPUs.
 
 ```
-vagrant 2.4.9 + vagrant-vmware-desktop plugin     p1, p2
+vagrant 2.4.9 + vagrant-vmware-desktop plugin     p1, p2   (macOS)
+vagrant + virtualbox                              p1, p2   (linux x86)
 orbstack                                          p3, bonus
 ```
+
+On Linux, VirtualBox 7 refuses host-only ranges that are not allowlisted, and
+the file does not exist by default:
+
+```sh
+echo "* 192.168.56.0/21" | sudo tee /etc/vbox/networks.conf
+```
+
+`p3` and `bonus` need no adaptation: their two scripts install everything from a
+bare Debian/Ubuntu and detect the architecture themselves. On Linux the `iot`
+machine below can be any Ubuntu VM — the scripts do not care how it was created.
 
 `p1` and `p2` are Vagrant VMs, as the subject requires. `p3` says *without
 Vagrant this time*, so it gets a plain Linux VM instead — an OrbStack machine,
@@ -341,8 +355,8 @@ Then edit `deployment.yaml` in the app repo, push, and watch Argo CD pick it up.
 
 - **Never run p1 and p2 at once** — both claim `192.168.56.110`. Two live VMs on
   one IP produce no error message at all: ARP picks a winner at random and
-  answers come from whichever cluster won. `vmrun list` tells you what is
-  actually running.
+  answers come from whichever cluster won. `vmrun list` (or `VBoxManage list
+  runningvms`) tells you what is actually running.
 - **After deleting a VM, flush the host ARP cache** (`sudo arp -d
   192.168.56.110`) or the host keeps sending frames to a MAC that no longer
   exists.
