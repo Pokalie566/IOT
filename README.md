@@ -25,8 +25,18 @@ choices worth knowing about:
   for.
 
 ```
-vagrant 2.4.9 + vagrant-vmware-desktop plugin
-docker (k3d only)
+vagrant 2.4.9 + vagrant-vmware-desktop plugin     p1, p2
+orbstack                                          p3, bonus
+```
+
+`p1` and `p2` are Vagrant VMs, as the subject requires. `p3` says *without
+Vagrant this time*, so it gets a plain Linux VM instead — an OrbStack machine,
+created with one command. Vagrant provisions nothing there; the cluster is built
+by `p3/scripts/start.sh`, run by hand inside that VM.
+
+```sh
+orb create ubuntu:noble iot    # ubuntu 24.04 arm64, docker-free, kubectl-free
+orb -m iot                     # shell into it; the repo is at the same path
 ```
 
 ## p1 — k3s server and agent
@@ -125,18 +135,22 @@ flowchart LR
     client --> app
 ```
 
+Both commands run **inside the `iot` machine**, on a box that starts with
+neither docker nor kubectl:
+
 ```sh
-sudo bash p3/scripts/install.sh   # docker, kubectl, k3d, helm, argocd (debian/ubuntu)
+sudo bash p3/scripts/install.sh   # docker, kubectl, k3d, git (debian/ubuntu)
 bash p3/scripts/start.sh          # cluster, namespaces, argo cd, Application
 ```
 
 `start.sh` prints the Argo CD URL and the generated admin password.
 
-| | |
-|---|---|
-| Argo CD UI | http://localhost:8080 (`admin`) |
-| App | http://localhost:8888 |
-| Watched repo | [Pokalie566/adeboose-iot-app](https://github.com/Pokalie566/adeboose-iot-app) |
+| | from inside the VM | from macOS |
+|---|---|---|
+| Argo CD UI | http://localhost:8080 (`admin`) | http://iot.orb.local:8080 |
+| App | http://localhost:8888 | http://iot.orb.local:8888 |
+
+Watched repo: [Pokalie566/adeboose-iot-app](https://github.com/Pokalie566/adeboose-iot-app)
 
 Changing the image tag in that repo and pushing is enough — no `kubectl`:
 
@@ -145,13 +159,20 @@ sed -i 's/iot-app:v1/iot-app:v2/' deployment.yaml
 git commit -am "bump to v2" && git push
 ```
 
-Argo CD polls roughly every 3 minutes. Measured end to end on this setup:
-**297 s** from `git push` to the new version being served.
+Argo CD polls roughly every 3 minutes, so the delay is whatever is left of that
+window: **93 s** measured from `git push` to `v2` being served. Not worth
+waiting for during a demo — a hard refresh skips the poll:
+
+```sh
+kubectl -n argocd annotate app playground argocd.argoproj.io/refresh=hard --overwrite
+```
 
 ## bonus — the same pipeline, off a self-hosted GitLab
 
+Same `iot` machine, same cluster as p3:
+
 ```sh
-bash bonus/scripts/install_gitlab.sh    # namespace gitlab, ~15 min on first boot
+bash bonus/scripts/install_gitlab.sh    # namespace gitlab, ~10 min on first boot
 bash bonus/scripts/push_to_gitlab.sh    # creates the public project, mirrors the manifests
 kubectl apply -f bonus/confs/application.yaml
 ```
@@ -161,14 +182,18 @@ GitHub to `gitlab.gitlab.svc.cluster.local:8081`. Argo CD resolves that through
 CoreDNS, from inside the cluster.
 
 Proven by committing a rollback to `v1` **on the local GitLab only**. Argo CD
-synced revision `bbcf485`, a commit GitHub does not have, and the cluster went
-back to `v1`. Expect it to be slow — 1123 s here against 297 s in p3, because
-GitLab and the rest of the cluster fight over the same CPU and RAM.
+synced revision `36c6dd4`, a commit GitHub does not have — its `main` still
+points at `08634e1` — and the cluster went back to `v1`, 23 s after a forced
+refresh.
 
-To reach the UI from a browser, the host needs the same name to resolve:
+To reach the UI from a browser, the name has to resolve on whichever machine
+runs the browser. Inside the VM it is loopback; on macOS it is the VM's address:
 
 ```sh
+# inside the iot machine
 echo "127.0.0.1 gitlab.gitlab.svc.cluster.local" | sudo tee -a /etc/hosts
+# on macOS
+echo "$(orbctl info iot | awk '/IPv4/{print $2}') gitlab.gitlab.svc.cluster.local" | sudo tee -a /etc/hosts
 ```
 
 The pipeline itself does not need it — `push_to_gitlab.sh` pushes from a pod,
