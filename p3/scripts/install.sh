@@ -1,6 +1,5 @@
 #!/bin/bash
 # installs every tool p3 needs: docker, kubectl, k3d, git
-# target: debian/ubuntu, run as root
 
 if [ "$(id -u)" -ne 0 ]; then
 	echo "run me as root" >&2
@@ -12,7 +11,6 @@ ARCH=$(dpkg --print-architecture)
 # docker: k3d runs the cluster nodes as containers, so it is the only hard dep
 if ! command -v docker >/dev/null; then
 	curl -fsSL https://get.docker.com | sh
-	# only when invoked through sudo: give that user docker without sudo
 	[ -n "${SUDO_USER:-}" ] && usermod -aG docker "$SUDO_USER"
 fi
 
@@ -30,7 +28,8 @@ command -v k3d >/dev/null ||
 # git: the v1 -> v2 demo pushes to the app repo from here
 command -v git >/dev/null || { apt-get update -qq && apt-get install -y -qq git; }
 
-for tool in docker kubectl k3d git; do
+TOOLS="docker kubectl k3d git"
+for tool in $TOOLS; do
 	command -v "$tool" >/dev/null || { echo "$tool missing" >&2; exit 1; }
-	echo "ok: $tool"
 done
+echo "ready: $TOOLS"

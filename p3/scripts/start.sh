@@ -29,9 +29,11 @@ kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 
 kubectl apply -f "$CONFS/application.yaml"
 
-echo
-echo "argo cd  http://localhost:8080"
-echo "user     admin"
-echo "password $(kubectl -n argocd get secret argocd-initial-admin-secret \
-	-o jsonpath='{.data.password}' | base64 -d)"
-echo "app      http://localhost:8888"
+cat <<EOF
+
+argo cd  http://localhost:8080
+user     admin
+password $(kubectl -n argocd get secret argocd-initial-admin-secret \
+	-o jsonpath='{.data.password}' | base64 -d)
+app      http://localhost:8888
+EOF
