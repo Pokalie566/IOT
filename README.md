@@ -21,9 +21,8 @@ choices worth knowing about:
 
 - **Provider `vmware_desktop`** — VirtualBox has no arm64 build, so the usual
   42 setup does not apply.
-- **Box `bento/ubuntu-24.04`** — one of the few boxes published for both arm64
-  and VMware. Ubuntu 24.04 is the current LTS, which is what the subject asks
-  for.
+- **Box `bento/ubuntu-26.04`** — one of the few boxes published for both arm64
+  and VMware, and the current LTS, which is what the subject asks for.
 
 ```
 vagrant 2.4.9 + vagrant-vmware-desktop plugin     p1, p2
@@ -36,7 +35,7 @@ created with one command. Vagrant provisions nothing there; the cluster is built
 by `p3/scripts/start.sh`, run by hand inside that VM.
 
 ```sh
-orb create ubuntu:noble iot    # ubuntu 24.04 arm64, docker-free, kubectl-free
+orb create ubuntu:resolute iot # ubuntu 26.04 arm64, docker-free, kubectl-free
 orb -m iot                     # shell into it; the repo is at the same path
 ```
 
@@ -214,11 +213,17 @@ VirtualBox), so hardcoding it is not portable either.
 
 **k3s waits for NTP before starting.** VMware writes the host's *local* time
 into the virtual RTC, but the guest reads it as UTC — so the VM boots up to two
-hours ahead until `systemd-timesyncd` corrects it. k3s started inside that
-window signs its certificates with a `notBefore` in the future, and every later
-call dies on `x509: certificate ... is not yet valid`. It is a race, so it fails
-intermittently, which is worse than failing always. `systemd-time-wait-sync`
-removes the race.
+hours ahead until the clock is corrected. k3s started inside that window signs
+its certificates with a `notBefore` in the future, and every later call dies on
+`x509: certificate ... is not yet valid`. It is a race, so it fails
+intermittently, which is worse than failing always.
+
+The barrier is one unit that blocks until the clock is sane — but its name
+changed: Ubuntu 26.04 ships **chrony** where 24.04 shipped systemd-timesyncd, so
+`systemd-time-wait-sync.service` no longer exists. It failed silently on the
+first 26.04 boot, leaving the race wide open behind a green `vagrant up`. The
+scripts now try `chrony-wait` first, fall back to the old name, and refuse to
+install k3s if neither is there.
 
 **`kubectl wait --all` does not wait for nothing.** On an empty set it exits
 with `no matching resources found` instead of blocking. Right after k3s starts,
