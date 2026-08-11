@@ -15,10 +15,16 @@ TOKEN="glpat-$(openssl rand -hex 10)"
 # have to hand it any credentials
 kubectl -n gitlab exec deploy/gitlab -- gitlab-rails runner "
   u = User.find_by_username('root')
-  unless u.namespace.projects.find_by_path('$PROJECT')
-    Projects::CreateService.new(u, name: '$PROJECT', path: '$PROJECT',
-      namespace_id: u.namespace_id, visibility_level: 20).execute
-  end
+  p = u.namespace.projects.find_by_path('$PROJECT')
+  p ||= Projects::CreateService.new(u, name: '$PROJECT', path: '$PROJECT',
+    namespace_id: u.namespace_id, visibility_level: 20).execute
+  # gitlab protects the default branch and refuses the force push below. deleting
+  # the rule is not enough, the protection is implicit: it takes an explicit one
+  # that allows force pushes.
+  p.protected_branches.destroy_all
+  ProtectedBranches::CreateService.new(p, u, {name: 'main', allow_force_push: true,
+    push_access_levels_attributes: [{access_level: Gitlab::Access::MAINTAINER}],
+    merge_access_levels_attributes: [{access_level: Gitlab::Access::MAINTAINER}]}).execute
   t = u.personal_access_tokens.create!(name: 'bootstrap-$RANDOM',
     scopes: ['api', 'write_repository'], expires_at: 365.days.from_now)
   t.set_token('$TOKEN')
@@ -32,7 +38,9 @@ kubectl -n gitlab run gitpush --rm -i --restart=Never --image=alpine/git:latest 
 	git clone -q $SOURCE /tmp/repo &&
 	cd /tmp/repo &&
 	git remote add gitlab http://oauth2:$TOKEN@$GITLAB_HOST/root/$PROJECT.git &&
-	git push -q gitlab main && echo pushed" || exit 1
+	git push -qf gitlab main && echo pushed" || exit 1
+# -f: this gitlab project is a throwaway mirror of github. replaying the demo
+# leaves commits here that github never had, and a plain push would refuse them.
 
 echo
 echo "project  http://$GITLAB_HOST/root/$PROJECT"

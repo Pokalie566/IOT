@@ -342,6 +342,11 @@ Then edit `deployment.yaml` in the app repo, push, and watch Argo CD pick it up.
   exists.
 - **k3d port mappings are frozen at cluster creation.** Getting them wrong means
   deleting and recreating the cluster.
+- **GitLab protects `main` even when no protection rule is listed.** Replaying
+  `push_to_gitlab.sh` after a demo pushes a history GitLab has diverged from, so
+  it needs `--force` — which the implicit default-branch protection rejects,
+  with an empty `protected_branches` list to mislead you. The script now creates
+  an explicit rule carrying `allow_force_push: true`.
 - **Node names are lowercased.** The host is `adebooseS`, the Kubernetes Node is
   `adebooses` — object names must be DNS-1123 compliant, and DNS is
   case-insensitive.
