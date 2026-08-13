@@ -181,10 +181,13 @@ bash p3/scripts/start.sh          # cluster, namespaces, argo cd, Application
 
 `start.sh` prints the Argo CD URL and the generated admin password.
 
-| | from inside the VM | from macOS |
-|---|---|---|
-| Argo CD UI | http://localhost:8080 (`admin`) | http://iot.orb.local:8080 |
-| App | http://localhost:8888 | http://iot.orb.local:8888 |
+| | inside the VM | from the macOS host | from the linux host |
+|---|---|---|---|
+| Argo CD UI | http://localhost:8080 (`admin`) | http://iot.orb.local:8080 | http://localhost:8080 |
+| App | http://localhost:8888 | http://iot.orb.local:8888 | http://localhost:8888 |
+
+OrbStack gives the machine a hostname; VirtualBox forwards the ports instead
+(see [Environment](#the-p3-host)), which is why the Linux column is loopback.
 
 Watched repo: [Pokalie566/adeboose-iot-app](https://github.com/Pokalie566/adeboose-iot-app)
 
