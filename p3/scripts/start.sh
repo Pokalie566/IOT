@@ -4,7 +4,8 @@
 CLUSTER=iot
 CONFS="$(cd "$(dirname "$0")/../confs" && pwd)"
 
-docker info >/dev/null 2>&1 || { echo "docker is not running" >&2; exit 1; }
+docker info >/dev/null 2>&1 ||
+	{ echo "docker unreachable: daemon down, or log out and back in for the docker group" >&2; exit 1; }
 
 k3d cluster list "$CLUSTER" >/dev/null 2>&1 || k3d cluster create "$CLUSTER" \
 	--port "8080:30080@loadbalancer" \
