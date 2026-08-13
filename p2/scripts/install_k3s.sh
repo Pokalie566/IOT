@@ -11,8 +11,6 @@ if [ -z "$IFACE" ]; then
 fi
 echo "private iface: $IFACE"
 
-# k3s signs its certs at install time, so a clock still ahead makes them
-# not-yet-valid. 26.04 swapped systemd-timesyncd for chrony, hence the two names.
 systemctl start chrony-wait 2>/dev/null || systemctl start systemd-time-wait-sync ||
 	{ echo "no clock sync service, refusing to install k3s" >&2; exit 1; }
 
