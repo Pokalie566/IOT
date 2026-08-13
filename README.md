@@ -26,38 +26,60 @@ Built and tested on **macOS, Apple Silicon (arm64)**, and written to replay on a
   and both providers. Vagrant 2.4 picks the variant matching the host.
 - **Images built for `linux/amd64,linux/arm64`** — same manifests, both CPUs.
 
-```
-vagrant 2.4.9 + vagrant-vmware-desktop plugin     p1, p2   (macOS)
-vagrant + virtualbox                              p1, p2   (linux x86)
-orbstack                                          p3, bonus
-```
+| | macOS arm64 | linux x86 |
+|---|---|---|
+| `p1`, `p2` | vagrant + vmware-desktop plugin | vagrant + virtualbox |
+| `p3`, `bonus` | orbstack machine `iot` | virtualbox VM `iot`, debian 13 |
 
-On Linux, VirtualBox 7 refuses host-only ranges that are not allowlisted, and
-the file does not exist by default:
+One extra step on Linux: VirtualBox 7 rejects host-only ranges that are not
+allowlisted, and the file does not exist out of the box.
 
 ```sh
 echo "* 192.168.56.0/21" | sudo tee /etc/vbox/networks.conf
 ```
 
-`p3` and `bonus` need no adaptation: their two scripts install everything from a
-bare Debian/Ubuntu and detect the architecture themselves. On Linux the `iot`
-machine below can be any Ubuntu VM — the scripts do not care how it was created.
+### The p3 host
 
 `p1` and `p2` are Vagrant VMs, as the subject requires. `p3` says *without
-Vagrant this time*, so it gets a plain Linux VM instead — an OrbStack machine,
-created with one command. Vagrant provisions nothing there; the cluster is built
-by `p3/scripts/start.sh`, run by hand inside that VM.
+Vagrant this time*, so it gets a plain Linux VM that Vagrant did not build. The
+cluster inside it is built by `p3/scripts/start.sh`, run by hand.
+
+The two scripts install everything from a bare Debian or Ubuntu — including
+`curl` and `git`, which a minimal Debian does not ship — and read the
+architecture from `dpkg`, so the same two commands work on either machine. Only
+the way the VM is created differs.
+
+**macOS** — one command:
 
 ```sh
-orb create ubuntu:resolute iot # ubuntu 26.04 arm64, docker-free, kubectl-free
-orb -m iot                     # shell into it; the repo is at the same path
+orb create ubuntu:resolute iot # docker-free, kubectl-free
+orb -m iot                     # shell in; the repo is at the same path
+```
+
+**Linux** — a Debian 13 netinst in VirtualBox, installed once: 4 CPU, 8 GB RAM,
+40 GB disk (GitLab is what sets those numbers), no desktop, `ssh server` and
+`standard system utilities` ticked. Then, VM powered off, forward the three
+ports the cluster publishes so the host browser reaches them:
+
+```sh
+VBoxManage modifyvm iot --natpf1 "argocd,tcp,127.0.0.1,8080,,8080"
+VBoxManage modifyvm iot --natpf1 "app,tcp,127.0.0.1,8888,,8888"
+VBoxManage modifyvm iot --natpf1 "gitlab,tcp,127.0.0.1,8081,,8081"
+VBoxManage modifyvm iot --natpf1 "ssh,tcp,127.0.0.1,2222,,22"
+```
+
+Boot it, `ssh -p 2222 <user>@127.0.0.1`, and clone the repo — there is no shared
+folder here, unlike Vagrant:
+
+```sh
+sudo apt install -y git && git clone https://github.com/Pokalie566/IOT.git
 ```
 
 ## p1 — k3s server and agent
 
 ```mermaid
 flowchart LR
-    subgraph host["macOS host"]
+    subgraph host["host"]
         token["p1/.secrets/node-token<br/><i>shared folder</i>"]
     end
     subgraph s["adebooseS &middot; 192.168.56.110"]
