@@ -32,7 +32,6 @@ metadata:
   namespace: gitlab
 spec:
   replicas: 1
-  # first boot runs the migrations and takes well over the default 10 minutes
   progressDeadlineSeconds: 1800
   selector:
     matchLabels:
