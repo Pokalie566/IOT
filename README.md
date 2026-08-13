@@ -229,10 +229,12 @@ To reach the UI from a browser, the name has to resolve on whichever machine
 runs the browser. Inside the VM it is loopback; on macOS it is the VM's address:
 
 ```sh
-# inside the iot machine
+# inside the iot machine, either host
 echo "127.0.0.1 gitlab.gitlab.svc.cluster.local" | sudo tee -a /etc/hosts
-# on macOS
+# on macOS, the orbstack machine's address
 echo "$(orbctl info iot | awk '/IPv4/{print $2}') gitlab.gitlab.svc.cluster.local" | sudo tee -a /etc/hosts
+# on linux, loopback again: port 8081 is forwarded there
+echo "127.0.0.1 gitlab.gitlab.svc.cluster.local" | sudo tee -a /etc/hosts
 ```
 
 The pipeline itself does not need it — `push_to_gitlab.sh` pushes from a pod,
