@@ -383,9 +383,9 @@ Then edit `deployment.yaml` in the app repo, push, and watch Argo CD pick it up.
   one IP produce no error message at all: ARP picks a winner at random and
   answers come from whichever cluster won. `vmrun list` (or `VBoxManage list
   runningvms`) tells you what is actually running.
-- **After deleting a VM, flush the host ARP cache** (`sudo arp -d
-  192.168.56.110`) or the host keeps sending frames to a MAC that no longer
-  exists.
+- **After deleting a VM, flush the host ARP cache** — `sudo arp -d
+  192.168.56.110` on macOS, `sudo ip neigh flush 192.168.56.110` on linux — or
+  the host keeps sending frames to a MAC that no longer exists.
 - **k3d port mappings are frozen at cluster creation.** Getting them wrong means
   deleting and recreating the cluster.
 - **GitLab protects `main` even when no protection rule is listed.** Replaying
