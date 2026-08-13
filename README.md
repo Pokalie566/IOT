@@ -350,12 +350,11 @@ curl 192.168.56.110                        # app3, no host -> catch-all
 
 ### p3 and bonus
 
-p3 runs in the `iot` Linux VM, **not** on the host — see [Environment](#environment).
-Everything below is typed inside it.
+p3 runs in the `iot` Linux VM, **not** on the host — orbstack on macOS,
+VirtualBox on linux, see [Environment](#the-p3-host). Everything below is typed
+inside it, after `orb -m iot` or `ssh -p 2222 <user>@127.0.0.1`.
 
 ```sh
-orb create ubuntu:noble iot        # if the machine does not exist yet
-orb -m iot
 sudo bash p3/scripts/install.sh    # docker, kubectl, k3d, git on a bare box
 bash p3/scripts/start.sh           # prints the Argo CD password
 kubectl get ns                     # argocd, dev
