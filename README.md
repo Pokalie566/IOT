@@ -369,7 +369,7 @@ Then edit `deployment.yaml` in the app repo, push, and watch Argo CD pick it up.
 | Asked | Answer |
 |---|---|
 | Why no Vagrantfile in `p3`? | The subject says *without Vagrant this time*, and the whole project must live in a VM — so p3 gets a plain Linux VM that Vagrant did not build. Vagrant provisions nothing there. |
-| `curl localhost:8888` fails on macOS | `localhost` on the Mac is not `localhost` in the VM. Use `http://iot.orb.local:8888`, or curl from inside the VM as the subject does. |
+| `curl localhost:8888` fails on the host | The host's `localhost` is not the VM's. On macOS use `http://iot.orb.local:8888`; on linux the port is forwarded, so loopback works; either way, curl from inside the VM as the subject does. |
 | Namespace vs pod | A namespace is a naming scope for objects, not a machine and not a runtime. A pod is the smallest deployable unit: one or more containers sharing a network namespace and an IP. |
 | Where is the login? | GitHub repo `adeboose-iot-app`, Docker Hub repo `pokalie566/adeboose-iot-app`, hostnames `adebooseS` / `adebooseSW`. |
 | The two Docker Hub tags | `v1` and `v2`, both `linux/amd64` + `linux/arm64`. |
