@@ -31,11 +31,11 @@ fi
 command -v k3d >/dev/null ||
 	curl -sL https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
-# git: the v1 -> v2 demo pushes to the app repo from here
-command -v git >/dev/null || { apt-get update -qq && apt-get install -y -qq git; }
-
 TOOLS="docker kubectl k3d git"
 for tool in $TOOLS; do
 	command -v "$tool" >/dev/null || { echo "$tool missing" >&2; exit 1; }
 done
 echo "ready: $TOOLS"
+if [ -n "${REOPEN:-}" ]; then
+	echo "log out and back in: the docker group is read at login"
+fi
