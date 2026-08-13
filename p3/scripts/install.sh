@@ -8,10 +8,16 @@ fi
 
 ARCH=$(dpkg --print-architecture)
 
+command -v curl >/dev/null && command -v git >/dev/null ||
+	{ apt-get update -qq && apt-get install -y -qq curl git ca-certificates; }
+
 # docker: k3d runs the cluster nodes as containers, so it is the only hard dep
 if ! command -v docker >/dev/null; then
 	curl -fsSL https://get.docker.com | sh
-	[ -n "${SUDO_USER:-}" ] && usermod -aG docker "$SUDO_USER"
+	if [ -n "${SUDO_USER:-}" ]; then
+		usermod -aG docker "$SUDO_USER"
+		REOPEN=1
+	fi
 fi
 
 # kubectl: whatever upstream currently marks as stable
