@@ -17,8 +17,15 @@ if [ ! -f /vagrant/.secrets/node-token ]; then
 	exit 1
 fi
 
-systemctl start chrony-wait 2>/dev/null || systemctl start systemd-time-wait-sync ||
-	{ echo "no clock sync service, refusing to install k3s" >&2; exit 1; }
+if systemctl cat chrony-wait.service >/dev/null 2>&1; then
+	systemctl start chrony-wait
+elif systemctl cat systemd-time-wait-sync.service >/dev/null 2>&1; then
+	systemctl start systemd-timesyncd
+	systemctl start systemd-time-wait-sync
+else
+	echo "no clock sync service, refusing to install k3s" >&2
+	exit 1
+fi
 
 curl -sfL https://get.k3s.io | \
 	K3S_URL="https://$SERVER_IP:6443" \

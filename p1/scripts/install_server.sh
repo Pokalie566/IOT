@@ -11,8 +11,15 @@ if [ -z "$IFACE" ]; then
 fi
 echo "private iface: $IFACE"
 
-systemctl start chrony-wait 2>/dev/null || systemctl start systemd-time-wait-sync ||
-	{ echo "no clock sync service, refusing to install k3s" >&2; exit 1; }
+if systemctl cat chrony-wait.service >/dev/null 2>&1; then
+	systemctl start chrony-wait
+elif systemctl cat systemd-time-wait-sync.service >/dev/null 2>&1; then
+	systemctl start systemd-timesyncd
+	systemctl start systemd-time-wait-sync
+else
+	echo "no clock sync service, refusing to install k3s" >&2
+	exit 1
+fi
 
 curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server \
 	--node-ip=$SERVER_IP \
